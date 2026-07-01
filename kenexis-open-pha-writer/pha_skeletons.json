@@ -1,0 +1,343 @@
+{
+ "Team_Members": {
+  "ID": "",
+  "Name": "",
+  "Company": "",
+  "Title": "",
+  "Department": "",
+  "Expertise": "",
+  "Experience": "",
+  "Phone_Number": "",
+  "E__Mail_Address": "",
+  "Team_Member_Comments": ""
+ },
+ "Sessions": {
+  "ID": "",
+  "Date": "",
+  "Duration": "",
+  "Session": "",
+  "Facilitator_ID": "",
+  "Scribe_ID": "",
+  "Session_Comments": ""
+ },
+ "Team_Members_Sessions": {
+  "ID": "",
+  "Team_Member_ID": "",
+  "Session_ID": "",
+  "Value": "null"
+ },
+ "Revalidation_History": {
+  "ID": "",
+  "Start_Date": "",
+  "End_Date": "",
+  "Revalidation_Comments": ""
+ },
+ "Nodes": {
+  "ID": "",
+  "Node_Description": "",
+  "Intention": "",
+  "Boundary": "",
+  "Design_Conditions": "",
+  "Operating_Conditions": "",
+  "Node_Color": "",
+  "Hazardous_Materials": "",
+  "Equipment_Tags": "",
+  "Location": "",
+  "Node_Comments": "",
+  "Session_IDs": [
+   {
+    "ID": "empty"
+   }
+  ],
+  "Drawing_IDs": [
+   {
+    "ID": "empty"
+   }
+  ],
+  "Deviations": [],
+  "Disabled": ""
+ },
+ "Deviations": {
+  "ID": "",
+  "Deviation": "",
+  "Guide_Word": "",
+  "Parameter": "",
+  "Design_Intent": "",
+  "Deviation_Comments": "",
+  "Causes": []
+ },
+ "Causes": {
+  "ID": "",
+  "Cause": "",
+  "Cause_Type": "",
+  "Enabling_Events": [],
+  "Cause_Hackable": "null",
+  "Frequency": "",
+  "Consequences": [],
+  "Cause_Library_Id": "",
+  "Cause_Library_Version": ""
+ },
+ "Enabling_Events": {
+  "ID": "",
+  "EE_Description": "",
+  "EE_Library_Id": "null",
+  "EE_Probability": ""
+ },
+ "Consequences": {
+  "ID": "",
+  "Consequence": "",
+  "Likelihood_ID_Before_Safeguards": "null",
+  "Risk_Rank_ID_Before_Safeguards": "",
+  "Likelihood_ID": "null",
+  "Risk_Rank_ID": "",
+  "Lopa_Required": "null",
+  "Recommended_Sil": "",
+  "Pha_Recommendation_IDs": [
+   {
+    "ID": "empty"
+   }
+  ],
+  "Likelihood_ID_After_Recommendations": "null",
+  "Risk_Rank_ID_After_Recommendations": "",
+  "Pha_Comment_IDs": [
+   {
+    "ID": "empty"
+   }
+  ],
+  "Lopa_Recommendation_IDs": [
+   {
+    "ID": "empty"
+   }
+  ],
+  "Lopa_Comment_IDs": [
+   {
+    "ID": "empty"
+   }
+  ],
+  "Alarp_Analysis": [],
+  "Alarp_Required": "null",
+  "Consequence_Type_ID": "null",
+  "Consequence_Severity_ID_Before_Safeguards": null,
+  "Consequence_Severity_ID": null,
+  "Consequence_Severity_ID_After_Recommendations": null,
+  "Lopa_Risk_Rank_ID_Before_Safeguards": "",
+  "Lopa_Risk_Rank_ID": "",
+  "Lopa_Risk_Rank_ID_After_Recommendations": "",
+  "Conditional_Modifiers": [],
+  "Safeguard_IDs": [
+   {
+    "ID": "empty"
+   }
+  ],
+  "Tmel": "",
+  "Mel": "",
+  "Lopa_Ratio": "",
+  "Rrf": "",
+  "Scenario_Hackable": ""
+ },
+ "Alarp_Analysis": {
+  "ID": "",
+  "Alarp_Analysis_Category_ID": "null",
+  "Alarp_Analysis_Description": "",
+  "Alarp_Analysis_Practical": "null",
+  "Alarp_Analysis_Comments": ""
+ },
+ "Conditional_Modifiers": {
+  "ID": "",
+  "CM_Description": "",
+  "CM_Probability": "",
+  "CM_Library_Id": "null"
+ },
+ "Safeguards": {
+  "ID": "",
+  "Safeguard": "",
+  "Safeguard_Type": "",
+  "Ipl_Tag": "",
+  "Safeguard_Category": "",
+  "Is_Safeguard": "null",
+  "Safeguard_Independent": "null",
+  "Safeguard_Auditable": "null",
+  "Safeguard_Effective": "null",
+  "Safeguard_Hackable": "null",
+  "Is_Ipl": "null",
+  "Pfd": "",
+  "Safety_Critical": "null",
+  "Selected_Sil": "null",
+  "Required_Response_Time": "",
+  "Test_Interval": "",
+  "Safeguard_Comments": "",
+  "Disabled": "",
+  "Safeguard_Library_Id": "",
+  "Safeguard_Library_Version": null
+ },
+ "Pha_Recommendations": {
+  "ID": "",
+  "Pha_Recommendation": "",
+  "Pha_Recommendation_Priority": "null",
+  "Pha_Recommendation_Responsible_Party": "",
+  "Pha_Recommendation_Status": "null",
+  "Pha_Recommendation_Due_Date": "",
+  "Pha_Recommendation_Comments": ""
+ },
+ "Pha_Comments": {
+  "ID": "",
+  "Pha_Comment": ""
+ },
+ "Lopa_Recommendations": {
+  "ID": "",
+  "Lopa_Recommendation": "",
+  "Lopa_Recommendation_Pfd": "",
+  "Lopa_Recommendation_Priority": "null",
+  "Lopa_Recommendation_Responsible_Party": "",
+  "Lopa_Recommendation_Status": "null",
+  "Lopa_Recommendation_Due_Date": "",
+  "Lopa_Recommendation_Comments": ""
+ },
+ "Lopa_Comments": {
+  "ID": "",
+  "Lopa_Comment": ""
+ },
+ "Parking_Lot": {
+  "ID": "",
+  "Parking_Lot_Issue": "",
+  "Response": "",
+  "Responsible_Party": "",
+  "Start_Date": "",
+  "End_Date": ""
+ },
+ "Drawings": {
+  "ID": "",
+  "Drawing": "",
+  "Revision": "",
+  "Document_Type": "",
+  "Drawing_Description": "",
+  "Link": ""
+ },
+ "Check_Lists": {
+  "ID": "",
+  "Check_List_Description": "",
+  "Check_List_Comments": "",
+  "Check_List_Questions": []
+ },
+ "Check_List_Questions": {
+  "ID": "",
+  "Check_List_Question": "",
+  "Check_List_Answer": "null",
+  "Check_List_Justification": "",
+  "Check_List_Recommendation_IDs": [
+   {
+    "ID": "empty"
+   }
+  ],
+  "Safeguard_IDs": [
+   {
+    "ID": "empty"
+   }
+  ]
+ },
+ "Check_List_Recommendations": {
+  "ID": "",
+  "Check_List_Recommendation": "",
+  "Check_List_Recommendation_Priority": "null",
+  "Check_List_Recommendation_Responsible_Party": "",
+  "Check_List_Recommendation_Status": "null",
+  "Check_List_Recommendation_Due_Date": "",
+  "Check_List_Recommendation_Comments": ""
+ },
+ "Mocs": {
+  "ID": "",
+  "Moc_Number": "",
+  "Moc_Short_Description": "",
+  "Moc_Long_Description": "",
+  "Moc_Status": "",
+  "Moc_Duration": "",
+  "Moc_Link": "",
+  "Moc_Comments": ""
+ },
+ "Previous_Incidents": {
+  "ID": "",
+  "Previous_Incident_Reference": "",
+  "Previous_Incident_Date": "",
+  "Previous_Incident_Level": "",
+  "Previous_Incident_Description": "",
+  "Previous_Incident_Status": "",
+  "Previous_Incident_Action": "",
+  "Previous_Incident_Link": "",
+  "Previous_Incident_Comments": ""
+ },
+ "Industry_Incidents": {
+  "ID": "",
+  "Industry_Incident_Source": "",
+  "Industry_Incident_Description": "",
+  "Industry_Incident_Action": "",
+  "Industry_Incident_Link": "",
+  "Industry_Incident_Comments": ""
+ },
+ "Scais": {
+  "ID": "",
+  "Scai_Description": "",
+  "Scai_Type": "",
+  "Scai_Hackable": "",
+  "Scai_Tag": "",
+  "Scai_Safety_Critical": "null",
+  "Scai_Selected_Sil": "",
+  "Scai_Required_Response_Time": "",
+  "Scai_Test_Interval": "",
+  "Scai_Category": "",
+  "Scai_Comments": "",
+  "Safeguard_IDs": [
+   {
+    "ID": "empty"
+   }
+  ]
+ },
+ "RC:Likelihoods": {
+  "ID": "",
+  "RM_Description": "",
+  "Frequency": "",
+  "Code": ""
+ },
+ "RC:Severities": {
+  "ID": "",
+  "Severity_Type": "",
+  "RM_Description": "",
+  "RM_Tmel": "",
+  "Code": ""
+ },
+ "RC:Intersections": {
+  "ID": "",
+  "Severity_ID": "",
+  "Likelihood_ID": "",
+  "Risk_Rank_ID": "null"
+ },
+ "RC:Risk_Rankings": {
+  "ID": "",
+  "RM_Description": "",
+  "Code": "",
+  "Color": "",
+  "Priority": "",
+  "Required_Lopa_Credits": ""
+ },
+ "RC:Consequence_Classifications": {
+  "ID": "",
+  "CC_Description": "",
+  "Code": "",
+  "Severity_Type": ""
+ },
+ "RC:Consequence_Magnitudes": {
+  "ID": "",
+  "CS_Description": "",
+  "Code": ""
+ },
+ "RC:Consequence_Intersections": {
+  "ID": "",
+  "Consequence_Classification_ID": "",
+  "Consequence_Magnitude_ID": "",
+  "Severity_ID": null
+ },
+ "RC:Alarp_Analysis_Categories": {
+  "ID": "",
+  "Alarp_Analysis_Category": "",
+  "Alarp_Analysis_Category_Description": ""
+ }
+}
