@@ -1,0 +1,12 @@
+{
+  "name": "kenexis-file-utilities",
+  "version": "1.0.0",
+  "description": "Read, write, and generate Kenexis Open-PHA (.opha) and Open-Audit (.aud) files",
+  "author": {
+    "name": "Kenexis Consulting",
+    "email": "info@kenexis.com"
+  },
+  "repository": "https://github.com/kenexis/Software-Utilities",
+  "license": "MIT",
+  "keywords": ["hazop", "lopa", "process-safety", "pha", "audit"]
+}
