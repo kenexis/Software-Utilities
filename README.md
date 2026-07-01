@@ -1,2 +1,2 @@
 # Software-Utilities
-Software utilities for data manipulation of files that are input or exported out of Kenexis software products.
+Software utilities for data manipulation of files that are input or exported out of Kenexis software products.  These utilities are primarily skill files to be consumed by LLM tools to create and manipulate data files employed by Kenexis software products.  These tools will allow third party application to manipulate and access data and allow AI tools to consume and modify the contents of these files.
