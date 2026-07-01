@@ -1,0 +1,11 @@
+{
+  "name": "kenexis-marketplace",
+  "owner": { "name": "Kenexis Consulting", "email": "info@kenexis.com" },
+  "plugins": [
+    {
+      "name": "kenexis-file-utilities",
+      "source": "./",
+      "description": "Read, write, and generate Kenexis Open-PHA and Open-Audit files"
+    }
+  ]
+}
