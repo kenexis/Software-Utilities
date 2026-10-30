@@ -274,8 +274,16 @@ def new_record(record_type, assign_id=True, analysis_mode=CAUSE_CONSEQUENCE, **f
     for k, v in fields.items():
         if k not in rec and k not in OPTIONAL_FIELDS:
             raise KeyError(f"Field {k!r} not in {record_type} ({analysis_mode})")
-        rec[k] = v
+        rec[k] = encode_text(v) if isinstance(v, str) else v
     return rec
+
+
+def encode_text(text):
+    """The application's cell encoding. It renders stored text as HTML, so a bare
+    < would be read as a tag. The record helpers apply this; call it only when
+    setting a text field directly. Text that is already encoded is unchanged."""
+    return (text.replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
+            .replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
 
 
 def empty_ref():
@@ -326,19 +334,31 @@ def _reidentify(doc):
     return doc
 
 
+def _show(node, columns):
+    found = set()
+    for key, value in node.items():
+        if key in LOPA_IGNORED_TREES:
+            continue
+        if isinstance(value, dict):
+            found |= _show(value, columns)
+        elif key in columns:
+            node[key] = True
+            found.add(key)
+    return found
+
+
+def show_columns(data, *columns):
+    """Turn on columns, e.g. show_columns(data, "Cause_Type", "Ipl_Tag"), wherever
+    they appear. An unknown column is an error."""
+    missing = set(columns) - _show(data["Settings"]["Column_Visibility"], columns)
+    if missing:
+        raise KeyError(f"Not in Column_Visibility: {', '.join(sorted(missing))}")
+
+
 def show_lopa_columns(data):
     """Turn on every column the LOPA calculation depends on. new_pha() does this.
     Use it on a loaded study only if its owner did not hide a factor on purpose."""
-    def show(node):
-        for key, value in node.items():
-            if key in LOPA_IGNORED_TREES:
-                continue
-            if isinstance(value, dict):
-                show(value)
-            elif key in LOPA_FACTOR_COLUMNS:
-                node[key] = True
-
-    show(data["Settings"]["Column_Visibility"])
+    _show(data["Settings"]["Column_Visibility"], LOPA_FACTOR_COLUMNS)
 
 
 def _column_visibility(root, node, key):
@@ -465,6 +485,20 @@ def new_pha(study_name="", template_path=None, analysis_mode=None, lopa_mode=Non
 # --------------------------------------------------------------------------- #
 # Collection helpers (append a record, dropping an untouched seed row)
 # --------------------------------------------------------------------------- #
+
+def severity_fields(data, severity_id):
+    """The fields a consequence needs for one Risk_Criteria.Severities row, to pass
+    to add_consequence: the severity, its category and its TMEL. Without the right
+    category the application blanks the severity when the worksheet opens."""
+    severity = next((s for s in data["Risk_Criteria"]["Severities"] if s["ID"] == severity_id), None)
+    if severity is None:
+        raise KeyError(f"{severity_id!r} is not in Risk_Criteria.Severities")
+    category = severity["Severity_Type"]
+    if _mode_of(data) == CONSEQUENCE_CAUSE:
+        return {f"{category}_Severity_ID": severity_id, f"Tmel_{category}": severity.get("RM_Tmel", "")}
+    return {"Consequence_Severity_ID": severity_id, "Consequence_Type_ID": category,
+            "Tmel": severity.get("RM_Tmel", "")}
+
 
 def _mode_of(data):
     mode = data.get("Settings", {}).get("Analysis_Mode")
@@ -701,7 +735,7 @@ def add_consequence(parent, consequence="", safeguard_ids=None,
 
 def add_enabling_event(cause, description="", probability="", credit=""):
     rec = OrderedDict(cause["Enabling_Events"][0])
-    rec.update(ID=make_id(), EE_Description=description,
+    rec.update(ID=make_id(), EE_Description=encode_text(description),
                EE_Probability=str(probability) if probability != "" else "",
                EE_Credit=str(credit) if credit != "" else "")
     return _add_child(cause, "Enabling_Events", rec)
@@ -720,7 +754,7 @@ def add_conditional_modifier(consequence, description="", probability="", credit
         key, prefix = f"Conditional_Modifiers_{category}", f"CM_{category[0]}"
     rec = copy.deepcopy(consequence[key][0])
     rec["ID"] = make_id()
-    rec[f"{prefix}_Description"] = description
+    rec[f"{prefix}_Description"] = encode_text(description)
     rec[f"{prefix}_Probability"] = str(probability) if probability != "" else ""
     rec[f"{prefix}_Credit"] = str(credit) if credit != "" else ""
     return _add_child(consequence, key, rec)
@@ -887,7 +921,9 @@ def _check_worksheet(data, mode, grouped, strict_shape):
                                                        "always keeps at least one")
 
     rated = {"causes": 0, "frequency": 0, "likelihood": 0, "consequences": 0, "severity": 0,
-             "tmel": 0, "above_one": 0, "not_numeric": 0}
+             "tmel": 0, "above_one": 0, "not_numeric": 0, "off_lopa": 0}
+    severities = {s.get("ID"): s.get("Severity_Type")
+                  for s in data.get("Risk_Criteria", {}).get("Severities", [])}
     for kind, path, rec in _worksheet_rows(data, mode):
         if kind == "Deviations":
             if not isinstance(rec.get(outer), list):
@@ -928,6 +964,15 @@ def _check_worksheet(data, mode, grouped, strict_shape):
                 tmel_keys = ["Tmel"] if mode == CAUSE_CONSEQUENCE else [f"Tmel_{c}" for c in CATEGORIES]
                 if any(_is_set(rec.get(k)) for k in tmel_keys):
                     rated["tmel"] += 1
+                    rated["off_lopa"] += 1 if rec.get("Lopa_Required") != "true" else 0
+                if mode == CAUSE_CONSEQUENCE and strict_shape:
+                    for f in ("Consequence_Severity_ID", "Consequence_Severity_ID_Before_Safeguards",
+                              "Consequence_Severity_ID_After_Recommendations"):
+                        if _is_set(rec.get(f)) and severities.get(rec[f]) != rec.get("Consequence_Type_ID"):
+                            grouped.add("error", f"{path}.Consequence_Type_ID",
+                                        "must be the severity's Severity_Type, or the application blanks "
+                                        "the severity and TMEL when the worksheet opens; "
+                                        "use severity_fields(data, severity_id)")
         if kind == "Causes" and real:
             rated["causes"] += 1
             frequency = rec.get("Frequency")
@@ -1045,6 +1090,9 @@ def _rating_warnings(rated, lopa_mode):
     if lopa_mode != "Implicit" and consequences and rated["tmel"] < consequences:
         out.append(_issue("warning", "Nodes[]", f"{consequences - rated['tmel']} of {consequences} "
                           "consequences have no TMEL, so Open-PHA cannot work out their RRF"))
+    if rated["off_lopa"]:
+        out.append(_issue("warning", "Nodes[]", f"{rated['off_lopa']} consequences have a TMEL but "
+                          "Lopa_Required is not \"true\", so they are left off the LOPA worksheet and reports"))
     if rated["above_one"]:
         out.append(_issue("warning", "Nodes[]", f"{rated['above_one']} causes have a frequency above 1 per "
                           "year. Check that a \"1 in N years\" source value was converted to 1/N"))

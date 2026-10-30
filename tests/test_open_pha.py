@@ -352,6 +352,129 @@ class LopaColumns(unittest.TestCase):
         self.assertIs(True, self.visible(d, "Conditional_Modifiers"))
 
 
+class Severities(unittest.TestCase):
+    """The application drops a severity that is not in its category's list."""
+
+    def severity(self, d, category="Safety"):
+        return next(s for s in d["Risk_Criteria"]["Severities"] if s["Severity_Type"] == category)
+
+    def study(self, **fields):
+        d = w.new_pha()
+        cause = w.add_cause(w.add_deviation(w.add_node(d, "N"), deviation="D"), cause="C")
+        w.add_consequence(cause, consequence="Q", Lopa_Required="true", **fields)
+        return d
+
+    def test_severity_fields_set_the_category_in_both_trees(self):
+        d = w.new_pha()
+        s = self.severity(d, "Asset")
+        self.assertEqual({"Consequence_Severity_ID": s["ID"], "Consequence_Type_ID": "Asset",
+                          "Tmel": s["RM_Tmel"]}, w.severity_fields(d, s["ID"]))
+        d = w.new_pha(analysis_mode=w.CONSEQUENCE_CAUSE)
+        s = self.severity(d, "Asset")
+        self.assertEqual({"Asset_Severity_ID": s["ID"], "Tmel_Asset": s["RM_Tmel"]},
+                         w.severity_fields(d, s["ID"]))
+
+    def test_an_unknown_severity_is_an_error(self):
+        with self.assertRaises(KeyError):
+            w.severity_fields(w.new_pha(), "nope")
+
+    def test_a_severity_with_no_category_is_refused(self):
+        d = self.study()
+        q = d["Nodes"][0]["Deviations"][0]["Causes"][0]["Consequences"][0]
+        q["Consequence_Severity_ID"] = self.severity(d)["ID"]
+        self.assertIn("Severity_Type", error_text(d))
+
+    def test_a_severity_from_another_category_is_refused(self):
+        d = self.study()
+        q = d["Nodes"][0]["Deviations"][0]["Causes"][0]["Consequences"][0]
+        q["Consequence_Severity_ID"] = self.severity(d)["ID"]
+        q["Consequence_Type_ID"] = "Asset"
+        self.assertIn("Severity_Type", error_text(d))
+
+    def test_the_before_and_after_severities_are_checked_too(self):
+        d = self.study()
+        q = d["Nodes"][0]["Deviations"][0]["Causes"][0]["Consequences"][0]
+        q["Consequence_Severity_ID_After_Recommendations"] = self.severity(d)["ID"]
+        self.assertIn("Severity_Type", error_text(d))
+
+    def test_severity_fields_pass(self):
+        d = w.new_pha()
+        s = self.severity(d)
+        cause = w.add_cause(w.add_deviation(w.add_node(d, "N"), deviation="D"), cause="C")
+        w.add_consequence(cause, consequence="Q", **w.severity_fields(d, s["ID"]))
+        self.assertEqual([], errors(d))
+
+    def test_a_row_left_off_the_lopa_worksheet_is_reported(self):
+        d = w.new_pha()
+        s = self.severity(d)
+        cause = w.add_cause(w.add_deviation(w.add_node(d, "N"), deviation="D"), cause="C")
+        con = w.add_consequence(cause, consequence="Q", **w.severity_fields(d, s["ID"]))
+        off = lambda: any("Lopa_Required" in i["message"] for i in w.validate(d))
+        self.assertTrue(off())
+        con["Lopa_Required"] = "true"
+        self.assertFalse(off())
+
+
+class Text(unittest.TestCase):
+    def test_encoding_matches_the_application(self):
+        self.assertEqual("P &lt; 5 &amp; T &gt; 9", w.encode_text("P < 5 & T > 9"))
+
+    def test_encoding_twice_changes_nothing(self):
+        once = w.encode_text("A & B <C>")
+        self.assertEqual(once, w.encode_text(once))
+
+    def test_helpers_encode_text(self):
+        d = w.new_pha()
+        w.add_safeguard(d, "Trip if P > 5")
+        node = w.add_node(d, "Feed & <drain>")
+        self.assertEqual("Trip if P &gt; 5", d["Safeguards"][-1]["Safeguard"])
+        self.assertEqual("Feed &amp; &lt;drain&gt;", node["Node_Description"])
+
+    def test_modifiers_and_enabling_events_encode_text(self):
+        for mode in w.ANALYSIS_MODES:
+            d = w.new_pha(analysis_mode=mode)
+            dev = w.add_deviation(w.add_node(d, "N"), deviation="D")
+            if mode == w.CAUSE_CONSEQUENCE:
+                cause = w.add_cause(dev, cause="C")
+                con = w.add_consequence(cause, consequence="Q")
+                cm = w.add_conditional_modifier(con, "P > 5")
+                self.assertEqual("P &gt; 5", cm["CM_Description"])
+            else:
+                con = w.add_consequence(dev, consequence="Q")
+                cause = w.add_cause(con, cause="C")
+                cm = w.add_conditional_modifier(con, "P > 5", category="Safety")
+                self.assertEqual("P &gt; 5", cm["CM_S_Description"])
+            self.assertEqual("T &lt; 3", w.add_enabling_event(cause, "T < 3")["EE_Description"])
+
+    def test_ids_and_numbers_are_untouched(self):
+        d = w.new_pha()
+        w.add_safeguard(d, "S", pfd="1E-1")
+        self.assertEqual("1E-1", d["Safeguards"][-1]["Pfd"])
+
+
+class Columns(unittest.TestCase):
+    def test_show_columns(self):
+        d = w.new_pha()
+        tree = d["Settings"]["Column_Visibility"]
+        self.assertIs(False, w._column_visibility(tree, tree, "Ipl_Tag"))
+        w.show_columns(d, "Ipl_Tag", "Safeguard_Type")
+        self.assertIs(True, w._column_visibility(tree, tree, "Ipl_Tag"))
+
+    def test_an_unknown_column_is_an_error(self):
+        with self.assertRaises(KeyError):
+            w.show_columns(w.new_pha(), "Nonsense")
+
+
+class ReaderSummary(unittest.TestCase):
+    def test_summary_counts_lopa_recommendations(self):
+        d = build(w.CAUSE_CONSEQUENCE)
+        w.add_lopa_recommendation(d, "Add a trip")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "s.opha")
+            w.save(d, path)
+            self.assertEqual(1, read_opha.load(path).summary()["lopa_recommendations"])
+
+
 class RatingWarnings(unittest.TestCase):
     def messages(self, d):
         return [i["message"] for i in w.validate(d)]

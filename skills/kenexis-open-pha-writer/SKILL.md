@@ -42,16 +42,27 @@ For read-only inspection or summarizing, use `kenexis-open-pha-reader`.
 |---|---|---|
 | "1 in N years", or a Freq column holding N | `Frequency` (per year) | `1/N`, so Freq 10 is `1E-1` |
 | RRF of an IPL or modifier | `Pfd`, `CM_Probability`, `EE_Probability` | `1/RRF` |
-| The same RRF | `Ipl_Credit`, `CM_Credit`, `EE_Credit` | `log10(RRF)` |
+| The same RRF | `Ipl_Credit`, `CM_Credit`, `EE_Credit` | `log10(RRF)`, as a decimal string such as `1.48` |
 | RRF required at a frequency of 1 per year | `Tmel` | `1/RRF` |
+| A percentage modifier, such as 10% occupancy | `CM_Probability`, `EE_Probability` | `0.1` |
+| The same percentage | `CM_Credit`, `EE_Credit` | `log10(1/fraction)`, so 10% is `1` |
+| A frequency, when a `Likelihood_ID` is wanted | `Likelihood_ID` | The `Risk_Criteria.Likelihoods` row with that `Frequency`, or else the nearest row above it. Say which rows were moved up |
 
 Other rules for a conversion:
 
 - **Safeguard records are shared.** `Is_Ipl` and `Pfd` sit on the library record and apply to every scenario linked to it. If a safeguard is credited in one scenario and not in another, or with a different value, make two records. Merging on the name alone changes risk results.
 - **Data with no field goes in a LOPA or PHA comment,** not nowhere. Tell the user what went there and what was dropped.
-- **Never invent text.** If the source has no deviation names, say so. A reference number from the source may be used as a label.
-- **Numbering comes from row position.** Open-PHA numbers rows itself, so strip list numbers from imported text, or set that collection's `Settings.Numbering` flag to false through `data["Settings"]["Numbering"]`, keeping all its keys. Gaps in the source's numbering are not preserved.
-- **`Cause_Type` and `Safeguard_Type` are free text,** so keep the source's wording.
+- **Never invent text.** If the source has no deviation names, say so. Make one deviation per source deviation, using the part of the reference that identifies it (`1.12` in `1.12.2.1.1`) as its label. With no reference either, use one blank deviation per node.
+- **Numbering comes from row position.** Open-PHA numbers rows itself, so strip list numbers from imported text and leave numbering on. Gaps in the source's numbering are not preserved. If other documents cite the source's numbers, keep them in the text and turn off each such level with `data["Settings"]["Numbering"]["Nodes"] = False` (likewise `"Deviations"`, `"Causes"`, `"Consequences"`), keeping the other keys.
+- **`Cause_Type` and `Safeguard_Type` are free text,** so keep the source's wording. These columns and `Ipl_Tag` start hidden, as does `Safeguard_Comments`, so call `show_columns(data, "Cause_Type", "Safeguard_Type", "Ipl_Tag", "Safeguard_Comments")` for those holding data.
+- **`Is_Safeguard` and `Is_Ipl` choose the worksheet.** The PHA worksheet lists a linked safeguard if `Is_Safeguard` is true, and the LOPA worksheet lists it if `Is_Ipl` is true. An IPL that was not a HAZOP safeguard has `is_safeguard=False`. A source row with no credit has `is_ipl=False`, so it is not on the LOPA worksheet; if the note matters there, also put it in a LOPA comment.
+- **A modifier with no effect (RRF 1 or 100%)** does not change the results. Write it only if the source names it.
+- **A source severity number has no field.** Map it by TMEL and keep the number in a LOPA comment.
+- **Severity comes with its category.** Pass `**severity_fields(data, severity_id)` to `add_consequence`. In a `CauseConsequence` study `Consequence_Type_ID` chooses the list of severities a row can hold, so without it the application blanks the severity and TMEL the first time the worksheet opens, and the user's next save makes that permanent. `validate()` refuses a mismatch.
+- **The Before/After fields are optional.** Set `Consequence_Severity_ID` and `Likelihood_ID`. Use `_Before_Safeguards` and `_After_Recommendations` only if the source rates those stages separately.
+- **Two `Likelihood_ID` fields mean different things.** On a cause it is the initiating likelihood for Implicit LOPA. On a consequence it is the PHA likelihood, which with the severity gives `Risk_Rank_ID`. If the source has no PHA likelihood, leave it blank and tell the user; `validate()` does not report this.
+- **Set `Lopa_Required="true"` on every LOPA scenario.** The default is `"false"`, and such a row is left off the LOPA worksheet and LOPA reports.
+- **Pass plain text.** The record helpers apply the application's encoding, so write `P < 5 & T > 9` as it reads. If you set a text field directly, use `encode_text()`.
 
 ## What the application calculates
 
@@ -83,8 +94,9 @@ These are calculated, and the application overwrites them whenever a study opens
   - `CauseConsequence`: `add_cause(deviation, …)` → `add_consequence(cause, safeguard_ids=[…], …)`
   - `ConsequenceCause`: `add_consequence(deviation, …)` → `add_cause(consequence, safeguard_ids=[…], …)`
   - Plus `add_enabling_event(cause, …)` and `add_conditional_modifier(consequence, …)`, which needs `category="Safety"` (or another of the five) in `ConsequenceCause`.
-- **Ratings:** pass any record field as a keyword: `add_cause(dev, cause="…", frequency="1E-1", Likelihood_ID=lik_id)`; `add_consequence(cause, consequence="…", Consequence_Severity_ID=sev_id, Tmel="1E-5")`. In `ConsequenceCause` a consequence uses `Safety_Severity_ID`, `Tmel_Safety` and so on, per category.
-- **LOPA columns:** `show_lopa_columns(data)` turns on every column the calculation depends on.
+- **Ratings:** pass any record field as a keyword: `add_cause(dev, cause="…", frequency="1E-1", Likelihood_ID=lik_id)`; `add_consequence(cause, consequence="…", Lopa_Required="true", **severity_fields(data, sev_id))`, which works in both trees. Pass `Tmel=` after it only if the source's TMEL differs from the matrix row's.
+- **Columns:** `show_columns(data, "Cause_Type", …)` turns on any column. `show_lopa_columns(data)` turns on every column the calculation depends on.
+- **Text:** `encode_text(text)`, for setting a text field directly.
 - **Validation:** `validate(data, allow_hidden_factors=False)` returns issue dicts (`severity` = `error` blocks save, `warning` advisory).
 - **Constants:** `CAUSE_CONSEQUENCE`, `CONSEQUENCE_CAUSE`, `NULL_SENTINEL`, `EMPTY_SENTINEL`, and `current_ds_rev()`.
 
@@ -122,8 +134,8 @@ dev  = w.add_deviation(node, deviation="High Pressure", guide_word="High",
                        parameter="Pressure")
 cause = w.add_cause(dev, cause="Blocked outlet", frequency="1E-1")   # 1 in 10 years
 con   = w.add_consequence(cause, consequence="Vessel overpressure / rupture",
-                          safeguard_ids=[sg], pha_recommendation_ids=[rec],
-                          Consequence_Severity_ID=severity["ID"], Tmel=severity["RM_Tmel"])
+                          safeguard_ids=[sg], pha_recommendation_ids=[rec], Lopa_Required="true",
+                          **w.severity_fields(d, severity["ID"]))
 
 warnings = w.save(d, "/path/to/study.opha")
 print(w.verify_round_trip("/path/to/study.opha", d))   # -> ok: True
@@ -135,7 +147,8 @@ The same study in `ConsequenceCause` swaps the last two levels, and safeguards m
 d = w.new_pha(study_name="Unit 400 HAZOP", analysis_mode="ConsequenceCause")
 ...
 con   = w.add_consequence(dev, consequence="Vessel overpressure / rupture",
-                          pha_recommendation_ids=[rec], Safety_Severity_ID=severity["ID"])
+                          pha_recommendation_ids=[rec], Lopa_Required="true",
+                          **w.severity_fields(d, severity["ID"]))
 cause = w.add_cause(con, cause="Blocked outlet", frequency="1E-1", safeguard_ids=[sg])
 ```
 

@@ -18,6 +18,7 @@ This document is the analytical foundation for a future `open-pha-reader` / `ope
 > - **A consequence must have `Alarp_Analysis` and `Alarp_Required`**, in both trees, or reports with the ALARP section fail.
 > - **`Column_Visibility` affects results.** §11 calls it a GUI setting that is not a data filter. That holds for reading a file, but the LOPA calculation counts a conditional modifier, enabling event, IPL or recommendation credit only if its column is visible on the LOPA worksheet. A hidden factor keeps its data and is left out of MEL and RRF.
 > - **`Mel`, `Lopa_Ratio`, `Rrf`, `Recommended_Sil` and the LOPA risk ranks are recalculated** whenever a study opens or changes, as is `Lopa_Gap` in Implicit mode.
+> - **Stored text is entity-encoded.** The application renders cells as HTML and writes `&`, `<` and `>` as `&amp;`, `&lt;` and `&gt;`.
 
 ## 1. File Format at a Glance
 
@@ -142,7 +143,7 @@ Used for free-text and some ID fields the user has not filled in (`Boundary: ""`
 
 This is the trap that has no analog in Open-Audit. A small, specific set of fields uses **real JSON `null`** (not the string) as their unset marker:
 
-- `Consequence_Severity_ID` — and its `_Before_Safeguards` and `_After_Recommendations` siblings.
+- `Consequence_Severity_ID` — and its `_Before_Safeguards` and `_After_Recommendations` siblings, in saved files. A new study uses `""`.
 - `Severity_ID` inside `Risk_Criteria.Consequence_Intersections`.
 - `Safeguard_Library_Version`.
 
@@ -225,7 +226,7 @@ A top-level **object** (not a list) with 8 sub-tables that jointly define the st
 **GUI state (round-trip untouched; never use as schema):**
 
 - `Column_Widths` — 145 entries, ints/floats of pixel widths. Undercounts and over-counts the real field set; not authoritative. Includes vestigial keys (`reference`, `ref`) with no matching data field.
-- `Column_Visibility` — per-collection show/hide tree with `<Collection>` booleans and `<Collection>_Children` field maps. **GUI state, not a data filter.** A field hidden here still holds real data. The reader must ignore this when extracting data and read every field on every record.
+- `Column_Visibility` — per-collection show/hide tree with `<Collection>` booleans and `<Collection>_Children` field maps. A field hidden here still holds real data, so a reader must ignore this when extracting data and read every field on every record. It is not only GUI state: the LOPA calculation leaves out a factor whose column is hidden.
 - `Column_Headers` — parallel tree of user-overridden column captions (mostly `""`).
 - `Tab_Visibility` — which UI tabs are shown (`ParkingLotTab: false`, `ScaisTab: false`, …).
 - `Grid_Settings` — matrix-widget layout for `Intersections`, `Team_Members_Sessions`, `Consequence_Intersections` (`headerHlocation`, `headerVlocation`, `invertAxis`).
@@ -430,6 +431,7 @@ The complete field-by-field schema, derived from the sample file. Notation:
 | `Enabling_Events` | list<Enabling_Event> | — | Y |
 | `Cause_Hackable` | string-bool | `""`/`"null"` | Y |
 | `Frequency` | string-num | `""` | Y (incl. `1E-3`) |
+| `Likelihood_ID` | id → Likelihoods | `""`/`"null"` | Y (Implicit LOPA, revision 41 on) |
 | `Consequences` | list<Consequence> | — | Y |
 | `Cause_Library_Id` | id | — | opt (library) |
 | `Cause_Library_Version` | string | `""` | opt (library) |
@@ -453,8 +455,8 @@ The complete field-by-field schema, derived from the sample file. Notation:
 | `Risk_Rank_ID_Before_Safeguards` | id → Risk_Rankings | `""` | Y |
 | `Likelihood_ID` | id → Likelihoods | `"null"` | Y |
 | `Risk_Rank_ID` | id → Risk_Rankings | `""`/`"null"` | Y |
-| `Lopa_Required` | string-bool | `"null"` | Y |
-| `Recommended_Sil` | string-enum | `""` | Y (`Sil1`…/`NoSil`) |
+| `Lopa_Required` | string-bool | `"false"` | Y (only `"true"` rows appear on the LOPA worksheet and reports) |
+| `Recommended_Sil` | string-enum | `""` | Y, calculated (`SIL 1`…/`No SIL`) |
 | `Pha_Recommendation_IDs` | id-list → Pha_Recommendations | `[{"ID":"empty"}]` | Y |
 | `Likelihood_ID_After_Recommendations` | id → Likelihoods | `"null"` | Y |
 | `Risk_Rank_ID_After_Recommendations` | id → Risk_Rankings | `""` | Y |
@@ -463,7 +465,7 @@ The complete field-by-field schema, derived from the sample file. Notation:
 | `Lopa_Comment_IDs` | id-list → Lopa_Comments | `[{"ID":"empty"}]` | Y |
 | `Alarp_Analysis` | list<Alarp_Analysis> | — | Y (inline) |
 | `Alarp_Required` | string-bool | `"null"` | Y |
-| `Consequence_Type_ID` | id → Consequence_Classifications | `"null"` | Y |
+| `Consequence_Type_ID` | category: `Safety`/`Environment`/`Asset`/`Community`/`Reputation` | `""`/`"null"` | Y (must be the severity's `Severity_Type`, or the application blanks the severity on opening the worksheet) |
 | `Consequence_Severity_ID_Before_Safeguards` | id → Severities | **`null` (JSON)** / `""` | Y |
 | `Consequence_Severity_ID` | id → Severities | **`null` (JSON)** / `""` | Y |
 | `Consequence_Severity_ID_After_Recommendations` | id → Severities | **`null` (JSON)** / `""` | Y |
@@ -478,7 +480,7 @@ The complete field-by-field schema, derived from the sample file. Notation:
 | `Rrf` | string-num | `""` | Y |
 | `Scenario_Hackable` | string-bool | `""` | Y |
 
-> **Encoding trap (see §5.4):** the `Consequence_Severity_ID` family uses **real JSON `null`** as the unset marker, while the parallel `Likelihood_ID` and `Consequence_Type_ID` families use the **string `"null"`**. Encode per field name.
+> **Encoding trap (see §5.4):** in saved files the `Consequence_Severity_ID` family uses **real JSON `null`** as the unset marker, while the parallel `Likelihood_ID` and `Consequence_Type_ID` families use the **string `"null"`**. A new study uses `""` for all of them. Never write the string `"null"` to a severity field.
 
 ### 15.12 `…Consequences[].Alarp_Analysis[]` (inline)
 

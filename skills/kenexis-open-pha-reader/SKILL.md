@@ -36,6 +36,7 @@ If the user wants to **create** or **edit** a `.opha` file, use `kenexis-open-ph
   - reference resolvers: `safeguards_of(ctx)` (works in either tree), `resolve_safeguards(record)`, `resolve_pha_recommendations(consequence)`, `resolve_lopa_recommendations(consequence)`
   - risk-matrix lookups: `severity_index()`, `likelihood_index()`, `risk_rank_index()`, `risk_rank_of(consequence, stage)`
   - `summary()` — a headline dict (study name, mode, counts, round-trip status)
+  - `study.data` — the raw document, for a field no accessor covers
 - Module-level sentinel predicates: `is_null_sentinel`, `is_empty_sentinel`, `is_unset`, `as_tristate`, `ids_in`.
 
 ## Procedure

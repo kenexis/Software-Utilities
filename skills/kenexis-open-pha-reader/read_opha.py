@@ -281,6 +281,7 @@ class PhaStudy:
             ("consequences", n_con),
             ("safeguards", len(self.safeguards())),
             ("pha_recommendations", len(self.pha_recommendations())),
+            ("lopa_recommendations", len(self.lopa_recommendations())),
             ("drawings", len(self.drawings())),
             ("team_members", len(self.team_members())),
             ("round_trip_ok", self.round_trip_ok()),
