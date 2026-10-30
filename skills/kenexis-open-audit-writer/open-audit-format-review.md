@@ -4,6 +4,14 @@ Source file: `SIS Functional Safety Assessment.aud` (180,709 bytes, single line,
 
 This document is the analytical foundation for a future `kenexis-open-audit-reader` / `kenexis-open-audit-writer` skill set. It catalogs the format's structure, its quirks, and — most importantly — the specific traps that will cause an AI agent to silently corrupt the file if it isn't told otherwise.
 
+> **Updated for `Ds_Rev` 7.** The sections below describe the original sample, a revision 6 file. Where they differ, these points win:
+>
+> - **Current revision is 7**, in both the desktop application and KISS. Revision 7 adds `Settings.Column_Headers`, built on open from `Column_Visibility` for an older file, and never rebuilt for a file already stamped 7. `write_aud.py` ships the application's own empty study (`aud_template.json`), which answers the questions in §14 about a fresh study's seed state.
+> - **Scores are derived, and persisted.** `Selected_Score`, `Selected_Weighting_Factor` and `Weighted_Score` follow from `Scoring_Criteria_ID` and `Weighting_Factor_ID`, and each category's `Completed_Questions`, `Total_Questions`, `Percent_Complete`, `Average_Score` and `Average_Weighted_Score` follow from its questions. The application calculates a question only when its row is edited and the category totals on save. Nothing recalculates on open. Reports read the stored values, and the dashboard counts `Scoring_Criteria_ID`, so a stored score with no criterion is invisible there and is erased by the next row edit.
+> - **Seed rows are replaced, not kept beside real rows.** The first real row takes the seed's place, and a link list holds `{"ID":"empty"}` only while it is empty. This overrides rule 17 in §11. The report numbers every row, so a seed left in place shifts the numbering.
+> - **Unset markers in a new study are `""`**, including `Scoring_Criteria_ID` and `Weighting_Factor_ID`. A row edit in the application writes `"null"` to them. Read both as unset. A new question's `Assessor_Recommendation_IDs` is `[]`.
+> - **Free text is encoded** by undoing `&lt;`, `&gt;` and `&amp;`, then escaping `&`, `<` and `>`. This covers the Overview fields, `Study_Name` included.
+
 ## 1. File Format at a Glance
 
 The file is a **single-line, UTF-8-clean, JSON-encoded object**, written with no whitespace between separators (Python equivalent: `json.dumps(data, separators=(',', ':'), ensure_ascii=False)`). I confirmed this by re-serializing the parsed object with that exact encoder — the result was **byte-identical** to the original (180,709 bytes both ways). The format is therefore round-trippable by any JSON library that:

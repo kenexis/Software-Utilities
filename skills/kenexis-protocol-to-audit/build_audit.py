@@ -26,7 +26,6 @@ HERE = Path(__file__).resolve().parent
 WRITER_CANDIDATES = [
     HERE.parent / "kenexis-open-audit-writer",
     HERE / "../kenexis-open-audit-writer",
-    Path("/sessions/gallant-clever-dijkstra/mnt/outputs/kenexis-open-audit-writer"),
 ]
 for cand in WRITER_CANDIDATES:
     if cand.exists():
@@ -36,8 +35,8 @@ for cand in WRITER_CANDIDATES:
 try:
     import write_aud
     from write_aud import (
-        new_audit, save, validate, add_question, find_category, find_element,
-        verify_round_trip, NULL_SENTINEL, EMPTY_SENTINEL,
+        new_audit, save, validate, add_category, add_element, add_question,
+        verify_round_trip, NULL_SENTINEL,
     )
 except ImportError as e:
     print(
@@ -59,12 +58,13 @@ MODULE_PREFIX_RE = re.compile(r"^Module\s+\d+\s*[—–-]\s*", re.IGNORECASE)
 
 
 def _split_row(line):
-    """Split a markdown table row into trimmed cells."""
+    """Split a markdown table row into trimmed cells. A pipe written as \\| is
+    text inside a cell, as in GitHub-flavored markdown."""
     m = TABLE_ROW_RE.match(line)
     if not m:
         return None
     inner = m.group(1)
-    return [c.strip() for c in inner.split("|")]
+    return [c.strip().replace("\\|", "|") for c in re.split(r"(?<!\\)\|", inner)]
 
 
 def _is_separator_row(line):
@@ -86,6 +86,11 @@ def _consume_table(lines, start):
         row = _split_row(lines[i])
         if row is None:
             break
+        if len(row) > len(headers):
+            raise ValueError(
+                f"Line {i + 1}: table row has {len(row)} cells but the header has "
+                f"{len(headers)}, so text would be lost. Write a pipe inside a cell as \\|."
+            )
         data.append(row)
         i += 1
     return headers, data, i
@@ -246,8 +251,6 @@ def _row_to_question(headers, row):
     # Pad row to match header length
     if len(row) < len(headers):
         row = row + [""] * (len(headers) - len(row))
-    elif len(row) > len(headers):
-        row = row[: len(headers)]
 
     by = dict(zip(norm, row))
 
@@ -306,7 +309,7 @@ def parse_weight_map(spec):
 def build_audit_data(protocol, *, study_name=None, facility="", facility_owner="",
                      facility_location="", project_number="", project_description="",
                      report_number="", unit="", coordinator_name="",
-                     coordinator_email="", general_notes="", ds_rev=6,
+                     coordinator_email="", general_notes="",
                      single_element_name="Audit Questions",
                      weight_map=None):
     """Construct an .aud data dict from a parsed protocol structure."""
@@ -326,40 +329,22 @@ def build_audit_data(protocol, *, study_name=None, facility="", facility_owner="
         coordinator_name=coordinator_name,
         coordinator_email=coordinator_email,
         general_notes=general_notes,
-        ds_rev=ds_rev,
     )
 
     # Build a code -> ID map for weighting factors so we can reference by code.
     wf_by_code = {wf["Weighting_Factor_Code"]: wf["ID"] for wf in data["Weighting_Factors"]}
 
     # For each category in the protocol, create a Category in the data.
-    from collections import OrderedDict
     for cat in protocol["categories"]:
-        cat_id = write_aud.make_id()
-        category_record = OrderedDict([
-            ("ID", cat_id),
-            ("Category_Description", cat["name"]),
-            ("Session_IDs", [OrderedDict([("ID", EMPTY_SENTINEL)])]),
-            ("Elements", []),
-        ])
-        data["Categories"].append(category_record)
+        cat_id = add_category(data, cat["name"])["ID"]
 
         # Decide on element shape: if every element in protocol has a name (i.e.
         # H3 sub-sections were used), respect them. If the only element is a
-        # default-unnamed one, use single_element_name.
-        elements = cat["elements"]
-        if not elements:
-            elements = [{"name": None, "questions": []}]
-
-        for elem in elements:
-            elem_id = write_aud.make_id()
+        # default-unnamed one, use single_element_name. An H3 with no question
+        # table beneath it (a notes section) is not an element.
+        for elem in (e for e in cat["elements"] if e["questions"]):
             elem_name = elem["name"] if elem["name"] else single_element_name
-            element_record = OrderedDict([
-                ("ID", elem_id),
-                ("Element_Description", elem_name),
-                ("Questions", []),
-            ])
-            category_record["Elements"].append(element_record)
+            elem_id = add_element(data, cat_id, elem_name)["ID"]
 
             # Add each question via the writer's add_question helper for safety.
             for q in elem["questions"]:
@@ -447,7 +432,6 @@ def main(argv=None):
     p.add_argument("--coordinator", default="")
     p.add_argument("--coordinator-email", default="")
     p.add_argument("--general-notes", default="")
-    p.add_argument("--ds-rev", type=int, default=6)
     p.add_argument("--single-element-name", default="Audit Questions")
     p.add_argument("--weight-map", default="")
     p.add_argument("--dry-run", action="store_true")
@@ -469,7 +453,6 @@ def main(argv=None):
         coordinator_name=args.coordinator,
         coordinator_email=args.coordinator_email,
         general_notes=args.general_notes,
-        ds_rev=args.ds_rev,
         single_element_name=args.single_element_name,
         weight_map=weight_map,
     )
