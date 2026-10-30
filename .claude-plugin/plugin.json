@@ -1,6 +1,6 @@
 {
   "name": "kenexis-file-utilities",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Read, write, and generate Kenexis Open-PHA (.opha) and Open-Audit (.aud) files",
   "author": {
     "name": "Kenexis Consulting",

@@ -1,6 +1,6 @@
 ---
 name: kenexis-open-pha-reader
-description: Read and interpret a Kenexis Open-PHA (.opha) study file without mutating it. Parses the compact-JSON container preserving key order and every sentinel, then exposes typed views over the worksheet tree (Nodes → Deviations → Causes → Consequences), the flat safeguard and recommendation libraries, the team roster, and the risk matrix — with reference-ID lists resolved back to the records they point at. Use when the user wants to inspect, summarize, extract, audit, or report on an existing .opha file (a HAZOP, LOPA, or checklist study from Open-PHA). Trigger phrases include "read this opha file", "summarize the PHA study", "list the safeguards / recommendations in this study", "extract the worksheet", "what nodes are in this HAZOP", "load the .opha". For creating or modifying an .opha, use kenexis-open-pha-writer instead.
+description: Read and interpret a Kenexis Open-PHA (.opha) study file without mutating it. Parses the compact-JSON container preserving key order and every sentinel, then exposes typed views over the worksheet tree (Nodes → Deviations → Causes → Consequences, or Consequences above Causes in a ConsequenceCause study), the flat safeguard and recommendation libraries, the team roster, and the risk matrix — with reference-ID lists resolved back to the records they point at. Use when the user wants to inspect, summarize, extract, audit, or report on an existing .opha file (a HAZOP, LOPA, or checklist study from Open-PHA). Trigger phrases include "read this opha file", "summarize the PHA study", "list the safeguards / recommendations in this study", "extract the worksheet", "what nodes are in this HAZOP", "load the .opha". For creating or modifying an .opha, use kenexis-open-pha-writer instead.
 ---
 
 # Kenexis Open-PHA Reader
@@ -9,7 +9,7 @@ description: Read and interpret a Kenexis Open-PHA (.opha) study file without mu
 
 The Open-PHA desktop application stores a study as a single-line JSON object in a `.opha` file. That format is dense, deeply nested, and full of sentinel conventions that are easy to misread (string `"null"` vs. real JSON `null`, the `"empty"` reference sentinel, numbers stored as strings, tri-state string booleans). This skill loads an `.opha` file **once, faithfully, and read-only**, and hands back convenient accessors so downstream work (summaries, quality audits, reports, conversions) never has to touch the raw JSON or re-implement the sentinel rules.
 
-The authoritative description of the format is `open-pha-format-review.md` in the project root. Read it if you need field-level detail; this skill implements its §13 read rules.
+The authoritative description of the format is `open-pha-format-review.md`, next to this file. Read it if you need field-level detail; this skill implements its §13 read rules.
 
 ## When to use this skill
 
@@ -32,8 +32,8 @@ If the user wants to **create** or **edit** a `.opha` file, use `kenexis-open-ph
 - A `PhaStudy` object (from `read_opha.py`) wrapping the parsed document, offering:
   - `study.overview`, `study.settings`, `study.analysis_mode`, `study.lopa_mode`, `study.ds_rev`
   - collection views that exclude the `"empty"` seed placeholder: `team_members()`, `sessions()`, `drawings()`, `nodes()`, `safeguards()`, `pha_recommendations()`, `lopa_recommendations()`, `check_lists()`, `scais()`
-  - `iter_consequences()` — flattens the Nodes → Deviations → Causes → Consequences tree, yielding a `ConsequenceContext(node, deviation, cause, consequence, …indices)`
-  - reference resolvers: `resolve_safeguards(consequence)`, `resolve_pha_recommendations(consequence)`, `resolve_lopa_recommendations(consequence)`
+  - `iter_consequences()` — flattens whichever tree the study uses, skipping blank seed rows, yielding a `ConsequenceContext(node, deviation, cause, consequence, …indices)`
+  - reference resolvers: `safeguards_of(ctx)` (works in either tree), `resolve_safeguards(record)`, `resolve_pha_recommendations(consequence)`, `resolve_lopa_recommendations(consequence)`
   - risk-matrix lookups: `severity_index()`, `likelihood_index()`, `risk_rank_index()`, `risk_rank_of(consequence, stage)`
   - `summary()` — a headline dict (study name, mode, counts, round-trip status)
 - Module-level sentinel predicates: `is_null_sentinel`, `is_empty_sentinel`, `is_unset`, `as_tristate`, `ids_in`.
@@ -62,13 +62,13 @@ print(study.summary())
 
 # Every consequence with its safeguards
 for ctx in study.iter_consequences():
-    sgs = study.resolve_safeguards(ctx.consequence)
+    sgs = study.safeguards_of(ctx)
     print(ctx.node["Node_Description"], "|", ctx.consequence["Consequence"],
           "| safeguards:", [s["Safeguard"] for s in sgs])
 
 # Consequences missing any safeguard
 gaps = [ctx for ctx in study.iter_consequences()
-        if not study.resolve_safeguards(ctx.consequence)]
+        if not study.safeguards_of(ctx)]
 ```
 
 ## Quality bar
@@ -81,6 +81,7 @@ gaps = [ctx for ctx in study.iter_consequences()
 
 - **Never** convert `"null"` → JSON `null`, `"true"` → `True`, `"8.0E-3"` → a float, or collapse `[{"ID":"empty"}]` → `[]`. Reading is non-destructive; leave the data exactly as parsed.
 - **Never** treat the `"empty"` seed record as real data. Use the collection accessors, which drop it.
+- **Never** assume safeguards sit on the consequence: in a `ConsequenceCause` study they sit on the cause. Use `safeguards_of(ctx)`.
 - **Never** read a field through `Settings.Column_Visibility` — visibility is GUI state, not a data filter. Every record field holds data regardless of visibility.
 - **Never** refuse based on hidden columns or unusual sentinels; that is expected format, not corruption.
 - If `round_trip_ok()` is `False`, do **not** silently proceed — report that the file did not parse faithfully.

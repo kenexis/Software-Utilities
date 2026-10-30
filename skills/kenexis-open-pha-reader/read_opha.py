@@ -201,18 +201,38 @@ class PhaStudy:
     # -- worksheet traversal ---------------------------------------------- #
 
     def iter_consequences(self):
-        """Yield a ConsequenceContext for every consequence in the worksheet,
-        flattening the Nodes -> Deviations -> Causes -> Consequences tree."""
+        """Yield a ConsequenceContext for every cause/consequence pair in the
+        worksheet, flattening whichever tree Settings.Analysis_Mode says this is:
+        Nodes -> Deviations -> Causes -> Consequences (CauseConsequence), or
+        Nodes -> Deviations -> Consequences -> Causes (ConsequenceCause).
+        Blank "empty" seed rows are skipped."""
+        def real(rows):
+            return [(i, r) for i, r in enumerate(rows or []) if r.get("ID") != EMPTY_SENTINEL]
+
         for ni, node in enumerate(self.nodes()):
             for di, dev in enumerate(node.get("Deviations", [])):
-                for ci, cause in enumerate(dev.get("Causes", [])):
-                    for qi, con in enumerate(cause.get("Consequences", [])):
-                        yield ConsequenceContext(node, dev, cause, con,
-                                                 ni, di, ci, qi)
+                if self.analysis_mode == "ConsequenceCause":
+                    for qi, con in real(dev.get("Consequences")):
+                        for ci, cause in real(con.get("Causes")):
+                            yield ConsequenceContext(node, dev, cause, con,
+                                                     ni, di, ci, qi)
+                else:
+                    for ci, cause in real(dev.get("Causes")):
+                        for qi, con in real(cause.get("Consequences")):
+                            yield ConsequenceContext(node, dev, cause, con,
+                                                     ni, di, ci, qi)
 
-    def resolve_safeguards(self, consequence):
+    def resolve_safeguards(self, record):
+        """Safeguards linked from a record. They sit on the consequence in a
+        CauseConsequence study and on the cause in a ConsequenceCause study; use
+        safeguards_of(ctx) to not care which."""
         idx = self.safeguard_index()
-        return [idx[i] for i in ids_in(consequence.get("Safeguard_IDs")) if i in idx]
+        return [idx[i] for i in ids_in(record.get("Safeguard_IDs")) if i in idx]
+
+    def safeguards_of(self, ctx):
+        """The safeguards of a ConsequenceContext row, in either tree."""
+        lower = ctx.cause if self.analysis_mode == "ConsequenceCause" else ctx.consequence
+        return self.resolve_safeguards(lower)
 
     def resolve_pha_recommendations(self, consequence):
         idx = self.pha_recommendation_index()
@@ -247,9 +267,9 @@ class PhaStudy:
 
     def summary(self):
         n_dev = sum(len(n.get("Deviations", [])) for n in self.nodes())
-        n_cause = sum(len(c.get("Causes", []))
-                      for n in self.nodes() for c in n.get("Deviations", []))
-        n_con = sum(1 for _ in self.iter_consequences())
+        rows = list(self.iter_consequences())
+        n_cause = len({id(r.cause) for r in rows})
+        n_con = len({id(r.consequence) for r in rows})
         return OrderedDict([
             ("study_name", self.overview.get("Study_Name")),
             ("analysis_mode", self.analysis_mode),

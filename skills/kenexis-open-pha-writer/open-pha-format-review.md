@@ -6,6 +6,19 @@ This document is the analytical foundation for a future `open-pha-reader` / `ope
 
 > **Single-sample caveat.** Every finding below is derived from **one** sample file: a *cause-indexed* HAZOP+LOPA study in `Analysis_Mode: "CauseConsequence"` with `Lopa_Mode: "Explicit"`. A deviation-indexed study, an implicit-LOPA study, or a checklist-only study may exercise field encodings this file does not. Where a rule is inferred from a single file rather than proven across modes, it is flagged. Treat this as a strong working spec, not a final one.
 
+> **Updated for `Ds_Rev` 42.** The sections below describe the original sample, a revision 39 file. Where they differ, these points win:
+>
+> - **Current revision is 42**, in both the desktop application and KISS. `write_opha.py` ships the application's own empty study for all four `Analysis_Mode` / `Lopa_Mode` pairs (`pha_templates.json`), so items 1, 3 and 6 of §14 are answered by those documents.
+> - **Both LOPA styles' fields are on every record** since revision 41 (`Pfd` and `Ipl_Credit`, `Frequency` and `Likelihood_ID`, `CM_Probability` and `CM_Credit`, `Lopa_Gap`, `Tmel` and so on). `Lopa_Mode` picks which set is shown and calculated.
+> - **`ConsequenceCause` has a different tree:** Nodes → Deviations → Consequences → Causes. Consequences carry per-category fields (`Safety_Severity_ID`, `Tmel_Safety`, `Conditional_Modifiers_Safety`, ...), and `Safeguard_IDs` sits on the cause, not the consequence.
+> - **Unset markers in a new study are `""`**, including `Likelihood_ID` and the severity family. `"null"` and real JSON `null` (§5) also appear in saved files, so read them all as unset. Do not write the string `"null"` to a severity field.
+> - **Blank rows:** a deviation's blank child, and that child's own blank child, are full records with `ID: "empty"`, not empty arrays.
+> - **`Settings` objects are required, not optional GUI state.** §11 calls some of them GUI state, which is true of their contents, but `Numbering`, `Grid_Settings`, `Tab_Visibility`, `Consequence_Category_Names`, `Column_Visibility` and `Column_Headers` must all be present and populated. A file missing any of them fails in reports or the browser, and is not repaired on open, because the updater only runs the steps above the file's `Ds_Rev`.
+> - **`Consequence_Category_Names` entries carry `color`** since revision 40.
+> - **A consequence must have `Alarp_Analysis` and `Alarp_Required`**, in both trees, or reports with the ALARP section fail.
+> - **`Column_Visibility` affects results.** §11 calls it a GUI setting that is not a data filter. That holds for reading a file, but the LOPA calculation counts a conditional modifier, enabling event, IPL or recommendation credit only if its column is visible on the LOPA worksheet. A hidden factor keeps its data and is left out of MEL and RRF.
+> - **`Mel`, `Lopa_Ratio`, `Rrf`, `Recommended_Sil` and the LOPA risk ranks are recalculated** whenever a study opens or changes, as is `Lopa_Gap` in Implicit mode.
+
 ## 1. File Format at a Glance
 
 The file is a **single-line, UTF-8-clean, JSON-encoded object**, written with no whitespace between separators (Python equivalent: `json.dumps(data, separators=(',', ':'), ensure_ascii=False)`). This was confirmed by re-serializing the parsed object with that exact encoder — the result was **byte-identical** to the original (351,238 bytes both ways).
